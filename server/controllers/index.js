@@ -1,8 +1,8 @@
 // pull in our models. This will automatically load the index.js from that folder
 const models = require('../models');
 
-// get the Cat model
 const Cat = models.Cat.CatModel;
+const Dog = models.Dog.DogModel;
 
 // default fake data so that we have something to work with until we make a real Cat
 const defaultData = {
@@ -85,6 +85,11 @@ const hostPage1 = (req, res) => {
 
   readAllCats(req, res, callback);
 };
+const hostPage4 = (req, res) => Dog.find((err, docs) => {
+  if (err) return res.json({ err });
+
+  return res.render('page4', { dogs: docs });
+});
 
 // function to handle requests to the page2 page
 // controller functions in Express receive the full HTTP request
@@ -128,44 +133,81 @@ const getName = (req, res) => {
 // ADDITIONALLY, with body-parser we will get the
 // body/form/POST data in the request as req.body
 const setName = (req, res) => {
-  // check if the required fields exist
-  // normally you would also perform validation
-  // to know if the data they sent you was real
   if (!req.body.firstname || !req.body.lastname || !req.body.beds) {
-    // if not respond with a 400 error
-    // (either through json or a web page depending on the client dev)
     return res.status(400).json({ error: 'firstname,lastname and beds are all required' });
   }
 
-  // if required fields are good, then set name
   const name = `${req.body.firstname} ${req.body.lastname}`;
 
-  // dummy JSON to insert into database
   const catData = {
     name,
     bedsOwned: req.body.beds,
   };
 
-  // create a new object of CatModel with the object to save
   const newCat = new Cat(catData);
 
-  // create new save promise for the database
   const savePromise = newCat.save();
 
   savePromise.then(() => {
-    // set the lastAdded cat to our newest cat object.
-    // This way we can update it dynamically
     lastAdded = newCat;
-    // return success
     res.json({ name: lastAdded.name, beds: lastAdded.bedsOwned });
   });
-
-  // if error, return it
-  savePromise.catch((err) => res.json({ err }));
+  savePromise.catch(err => res.json({ err }));
 
   return res;
 };
 
+const setDog = (req, res) => {
+  if (!req.body.name || !req.body.breed || !req.body.age) {
+    return res.status(400).json({ error: 'name, breed, and age are all required to submit a dog' });
+  }
+
+  const dogData = {
+    name: req.body.name,
+    breed: req.body.breed,
+    age: req.body.age,
+  };
+
+  const newDog = new Dog(dogData);
+
+  const savePromise = newDog.save();
+
+  return savePromise.then(() => {
+    res.json({
+      name: req.body.name,
+      breed: req.body.breed,
+      age: req.body.age,
+    });
+  }).catch((err) => {
+    res.json({ err });
+  });
+};
+const updateDog = (req, res) => {
+  if (!req.body.searchName) {
+    return res.status(400).json({ error: 'Must enter a dog name in order to update its age' });
+  }
+
+  return Dog.findByName(req.body.searchName, (err, doc) => {
+    const docs = doc;
+    if (err) {
+      return res.json({ err }); // if error, return it
+    }
+    if (!docs || docs === undefined) {
+      return res.json({ error: 'No dog found' });
+    }
+    docs.age++;
+
+    return docs.save().then(() => {
+      res.json({
+        name: docs.name,
+        breed: docs.breed,
+        age: docs.age,
+      });
+    }).catch((e) => {
+      res.json({ e });
+    });
+  });
+};
 
 // function to handle requests search for a name and return the object
 // controller functions in Express receive the full HTTP request
@@ -229,7 +271,7 @@ const updateLast = (req, res) => {
   savePromise.then(() => res.json({ name: lastAdded.name, beds: lastAdded.bedsOwned }));
 
   // if save error, just return an error for now
-  savePromise.catch((err) => res.json({ err }));
+  savePromise.catch(err => res.json({ err }));
 };
 
 // function to handle a request to any non-real resources (404)
@@ -253,10 +295,17 @@ module.exports = {
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
+  page4: hostPage4,
   readCat,
+
   getName,
+
   setName,
+  setDog,
+
+  updateDog,
   updateLast,
+
   searchName,
   notFound,
 };
